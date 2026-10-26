@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Recorrido jugable</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&amp;family=VT323&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0a0a07}
+a{color:#c9d97a}a:hover{color:#e6f0a0}
+.px{box-shadow:4px 0 0 0 #3b3d2c,-4px 0 0 0 #3b3d2c,0 4px 0 0 #3b3d2c,0 -4px 0 0 #3b3d2c,8px 0 0 0 #070705,-8px 0 0 0 #070705,0 8px 0 0 #070705,0 -8px 0 0 #070705,4px 4px 0 0 #070705,-4px 4px 0 0 #070705,4px -4px 0 0 #070705,-4px -4px 0 0 #070705}
+.stage:focus{outline:none}
+.pad{all:unset;box-sizing:border-box;cursor:pointer;width:46px;height:46px;display:flex;align-items:center;justify-content:center;background:rgba(14,15,10,.9);box-shadow:3px 0 0 0 #3b3d2c,-3px 0 0 0 #3b3d2c,0 3px 0 0 #3b3d2c,0 -3px 0 0 #3b3d2c;touch-action:none;user-select:none}
+.pad:active,.pad:focus-visible{background:#2a2a1c;box-shadow:3px 0 0 0 #e6dfc0,-3px 0 0 0 #e6dfc0,0 3px 0 0 #e6dfc0,0 -3px 0 0 #e6dfc0}
+.restart{all:unset;cursor:pointer;box-sizing:border-box;padding:10px 16px;min-height:44px;display:flex;align-items:center;gap:10px;background:#14150f;box-shadow:3px 0 0 0 #3b3d2c,-3px 0 0 0 #3b3d2c,0 3px 0 0 #3b3d2c,0 -3px 0 0 #3b3d2c;font-family:'Silkscreen',monospace;font-size:12px;color:#e6dfc0}
+.restart:hover,.restart:focus-visible{box-shadow:3px 0 0 0 #e8b33a,-3px 0 0 0 #e8b33a,0 3px 0 0 #e8b33a,0 -3px 0 0 #e8b33a}
+.pulse{position:absolute;border-radius:50%;border:3px solid #e8b33a;box-sizing:border-box;animation:pulse 1.6s infinite ease-out;pointer-events:none}
+@keyframes pulse{0%{transform:scale(.25);opacity:.9}100%{transform:scale(1.6);opacity:0}}
+.float{animation:float 2.2s infinite ease-in-out}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.blink{animation:blink 1s infinite steps(1)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.note{position:absolute;animation:note 2.4s infinite ease-out;pointer-events:none}
+@keyframes note{0%{transform:translate(0,0);opacity:0}15%{opacity:1}100%{transform:translate(18px,-70px);opacity:0}}
+.altl{animation:altl .5s infinite steps(1)}
+@keyframes altl{0%{background:#e6dfc0}50%{background:#3b3d2c}}
+.altr{animation:altr .5s infinite steps(1)}
+@keyframes altr{0%{background:#3b3d2c}50%{background:#e6dfc0}}
+.pop{animation:pop 1.2s ease-out forwards}
+@keyframes pop{0%{opacity:0;transform:translateY(8px) scale(.8)}15%{opacity:1;transform:translateY(0) scale(1.2)}30%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}
+.vhs{background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.07) 0 2px,transparent 2px 6px);animation:vhs .2s infinite steps(2)}
+@keyframes vhs{0%{background-position:0 0}100%{background-position:0 6px}}
+.shake{animation:shake2 2s infinite steps(1)}
+@keyframes shake2{0%,60%,100%{transform:translateX(0)}64%{transform:translateX(-3px)}68%{transform:translateX(3px)}72%{transform:translateX(-3px)}76%{transform:translateX(0)}}
+.fadein{animation:fadein .6s ease-out}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.scan{background-image:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px);pointer-events:none}
+</style>
+</helmet>
+<div class="stage" tabIndex="0" ref="{{stageRef}}" onKeyDown="{{keyDown}}" onKeyUp="{{keyUp}}" onClick="{{focusStage}}" aria-label="Recorrido jugable: flechas para caminar, espacio para actuar" style="width: 1280px; height: 720px; position: relative; overflow: hidden; font-family: 'VT323', monospace; color: #e6dfc0; background: #0a0a07">
+
+<!-- Mundo: se desatura cada vez que ignorás -->
+<div style="position: absolute; inset: 0; filter: {{worldFilter}}; transform: translateX({{shakeX}})">
+<img src="./assets/8c08db922fd45bf5ddc33fea8e03a06e.png" alt="Hall de la estación con boletería, molinetes, una columna ornamentada y la escalera de salida" style="position: absolute; inset: 0; width: 1280px; height: 720px; object-fit: cover; image-rendering: pixelated">
+<div style="position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 50%, rgba(0,0,0,.55) 100%)"></div>
+
+<!-- Salida: cartel de la H a la derecha -->
+<div class="float" role="img" aria-label="Salida hacia la línea H" style="position: absolute; left: 1222px; top: 540px; width: 40px; height: 40px; border-radius: 50%; background: #f2c200; box-shadow: 0 0 0 3px #070705; display: flex; align-items: center; justify-content: center; font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 18px; color: #10110c">H</div>
+
+<!-- Escena 5: fila de molinetes -->
+<sc-if value="{{s5}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 690px; top: 250px; width: 56px; height: 128px; background: #6b6a55; box-shadow: inset 0 0 0 4px #3b3d2c, 0 0 0 3px #070705; background-image: repeating-linear-gradient(0deg, #6b6a55 0 30px, #4a4936 30px 34px)"></div>
+<div style="position: absolute; left: 690px; top: 444px; width: 56px; height: 174px; background: #6b6a55; box-shadow: inset 0 0 0 4px #3b3d2c, 0 0 0 3px #070705; background-image: repeating-linear-gradient(0deg, #6b6a55 0 30px, #4a4936 30px 34px)"></div>
+<div style="position: absolute; left: 750px; top: 364px; width: 22px; height: 26px; background: #2c2d21; box-shadow: 0 0 0 3px #070705; display: flex; align-items: center; justify-content: center"><div style="width: 12px; height: 8px; background: {{readerColor}}"></div></div>
+<div style="position: absolute; left: 690px; top: {{gateTop}}; width: 56px; height: 8px; background: {{gateColor}}; box-shadow: 0 0 0 2px #070705"></div>
+<div style="position: absolute; left: 752px; top: 600px; width: 14px; height: 14px; background: {{gateColor}}; box-shadow: 0 0 0 3px #070705"></div>
+</sc-if>
+
+<!-- Escena 1: DNI pateado por el piso -->
+<sc-if value="{{showDni}}" hint-placeholder-val="{{ false }}">
+<svg role="img" aria-label="Documento en el piso" style="position: absolute; left: {{dniL}}; top: {{dniT}}" width="28" height="20" viewBox="0 0 14 10" shape-rendering="crispEdges"><rect x="0" y="0" width="14" height="10" fill="#d8d0b0"></rect><rect x="1" y="2" width="4" height="6" fill="#7d7a62"></rect><rect x="7" y="3" width="5" height="1" fill="#7d7a62"></rect><rect x="7" y="6" width="4" height="1" fill="#7d7a62"></rect></svg>
+</sc-if>
+
+<!-- Escena 3: notas que salen de la guitarra -->
+<sc-if value="{{showNotes}}" hint-placeholder-val="{{ false }}">
+<sc-for list="{{notes}}" as="n" hint-placeholder-count="3">
+<div class="note" style="left: {{n.l}}; top: {{n.t}}; animation-delay: {{n.d}}"><svg width="18" height="18" viewBox="0 0 6 6" aria-hidden="true" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="4" fill="{{noteColor}}"></rect><rect x="4" y="0" width="2" height="1" fill="{{noteColor}}"></rect><rect x="1" y="3" width="3" height="2" fill="{{noteColor}}"></rect></svg></div>
+</sc-for>
+</sc-if>
+
+<!-- Pulso de "alguien te necesita" -->
+<sc-if value="{{showPulse}}" hint-placeholder-val="{{ false }}">
+<div class="pulse" style="left: {{pulseL}}; top: {{pulseT}}; width: 120px; height: 120px"></div>
+<div class="pulse" style="left: {{pulseL}}; top: {{pulseT}}; width: 120px; height: 120px; animation-delay: .8s"></div>
+</sc-if>
+
+<!-- Personas -->
+<sc-for list="{{npcs}}" as="p" hint-placeholder-count="2">
+<svg role="img" aria-label="{{p.label}}" style="position: absolute; left: {{p.l}}; top: {{p.t}}" width="{{p.w}}" height="{{p.h}}" viewBox="0 0 10 16" shape-rendering="crispEdges"><rect x="3" y="0" width="4" height="2" fill="{{p.hair}}"></rect><rect x="2" y="1" width="1" height="2" fill="{{p.hair}}"></rect><rect x="7" y="1" width="1" height="2" fill="{{p.hair}}"></rect><rect x="3" y="2" width="4" height="2" fill="#d9a77a"></rect><rect x="2" y="4" width="6" height="8" fill="{{p.coat}}"></rect><rect x="1" y="5" width="1" height="4" fill="{{p.coat}}"></rect><rect x="8" y="5" width="1" height="4" fill="{{p.coat}}"></rect><rect x="3" y="12" width="1" height="3" fill="#2c2d21"></rect><rect x="6" y="12" width="1" height="3" fill="#2c2d21"></rect><rect x="2" y="15" width="2" height="1" fill="#10110c"></rect><rect x="6" y="15" width="2" height="1" fill="#10110c"></rect></svg>
+</sc-for>
+
+<!-- Escena 3: guitarra · Escena 4: caja de medias -->
+<sc-if value="{{s3}}" hint-placeholder-val="{{ false }}">
+<svg aria-hidden="true" style="position: absolute; left: 596px; top: 290px" width="36" height="36" viewBox="0 0 9 9" shape-rendering="crispEdges"><rect x="1" y="4" width="4" height="4" fill="#a8322a"></rect><rect x="2" y="5" width="2" height="2" fill="#10110c"></rect><rect x="5" y="2" width="1" height="3" fill="#7a5a3a"></rect><rect x="6" y="1" width="2" height="2" fill="#7a5a3a"></rect></svg>
+<svg aria-hidden="true" style="position: absolute; left: 640px; top: 314px" width="36" height="20" viewBox="0 0 9 5" shape-rendering="crispEdges"><rect x="0" y="1" width="9" height="4" fill="#3b3d2c"></rect><rect x="1" y="2" width="7" height="2" fill="#5a2420"></rect><sc-if value="{{coinInCase}}" hint-placeholder-val="{{ false }}"><rect x="4" y="2" width="2" height="1" fill="#e8b33a"></rect></sc-if></svg>
+</sc-if>
+<sc-if value="{{s4}}" hint-placeholder-val="{{ false }}">
+<svg aria-hidden="true" style="position: absolute; left: 748px; top: 628px" width="40" height="28" viewBox="0 0 10 7" shape-rendering="crispEdges"><rect x="0" y="2" width="10" height="5" fill="#c8b98a"></rect><rect x="1" y="0" width="2" height="3" fill="#a8322a"></rect><rect x="4" y="0" width="2" height="3" fill="#3b5fa0"></rect><rect x="7" y="0" width="2" height="3" fill="#e6dfc0"></rect></svg>
+</sc-if>
+
+<!-- Personaje -->
+<div style="position: absolute; left: {{pl}}; top: {{pt}}; width: 40px; height: 64px">
+<svg role="img" aria-label="Tu personaje" width="40" height="64" viewBox="0 0 10 16" shape-rendering="crispEdges" style="transform: scaleX({{face}})"><rect x="3" y="0" width="4" height="3" fill="#2a1d14"></rect><rect x="2" y="1" width="1" height="2" fill="#2a1d14"></rect><rect x="7" y="1" width="1" height="2" fill="#2a1d14"></rect><rect x="2" y="3" width="6" height="7" fill="#3b5fa0"></rect><rect x="3" y="4" width="4" height="5" fill="#7a5a3a"></rect><rect x="1" y="4" width="1" height="4" fill="#3b5fa0"></rect><rect x="8" y="4" width="1" height="4" fill="#3b5fa0"></rect><rect x="3" y="10" width="4" height="2" fill="#2c2d21"></rect></svg>
+<sc-if value="{{stepA}}" hint-placeholder-val="{{ true }}"><svg style="position: absolute; left: 0; top: 0" width="40" height="64" viewBox="0 0 10 16" aria-hidden="true" shape-rendering="crispEdges"><rect x="3" y="12" width="1" height="3" fill="#2c2d21"></rect><rect x="6" y="12" width="1" height="2" fill="#2c2d21"></rect><rect x="2" y="15" width="2" height="1" fill="#10110c"></rect><rect x="6" y="14" width="2" height="1" fill="#10110c"></rect></svg></sc-if>
+<sc-if value="{{stepB}}" hint-placeholder-val="{{ false }}"><svg style="position: absolute; left: 0; top: 0" width="40" height="64" viewBox="0 0 10 16" aria-hidden="true" shape-rendering="crispEdges"><rect x="3" y="12" width="1" height="2" fill="#2c2d21"></rect><rect x="6" y="12" width="1" height="3" fill="#2c2d21"></rect><rect x="2" y="14" width="2" height="1" fill="#10110c"></rect><rect x="6" y="15" width="2" height="1" fill="#10110c"></rect></svg></sc-if>
+<sc-if value="{{carryDni}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" style="position: absolute; left: 24px; top: 26px" width="18" height="13" viewBox="0 0 14 10" shape-rendering="crispEdges"><rect x="0" y="0" width="14" height="10" fill="#d8d0b0"></rect><rect x="1" y="2" width="4" height="6" fill="#7d7a62"></rect></svg></sc-if>
+</div>
+</div>
+
+<!-- Ritmo: anillo que se cierra sobre el personaje -->
+<sc-if value="{{rhythmOn}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: {{rtL}}; top: {{rtT}}; width: 56px; height: 56px; border-radius: 50%; border: 4px solid #e6dfc0; box-sizing: border-box; pointer-events: none"></div>
+<div style="position: absolute; left: {{rrL}}; top: {{rrT}}; width: {{rrS}}; height: {{rrS}}; border-radius: 50%; border: 4px solid #c9d97a; box-sizing: border-box; pointer-events: none"></div>
+<div style="position: absolute; left: {{rdL}}; top: {{rdT}}; display: flex; gap: 6px; pointer-events: none">
+<sc-for list="{{rhythmDots}}" as="d" hint-placeholder-count="4"><div style="width: 10px; height: 10px; background: {{d.bg}}; box-shadow: 0 0 0 2px #070705"></div></sc-for>
+</div>
+</sc-if>
+
+<!-- Mantener: barra de carga bajo el personaje -->
+<sc-if value="{{holdOn}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: {{hbL}}; top: {{hbT}}; display: flex; gap: 3px; padding: 3px; background: #070705; pointer-events: none">
+<sc-for list="{{holdSegs}}" as="h" hint-placeholder-count="8"><div style="width: 7px; height: 10px; background: {{h.bg}}"></div></sc-for>
+</div>
+</sc-if>
+
+<!-- Alternar: ← → titilando junto al personaje -->
+<sc-if value="{{altOn}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: {{alL}}; top: {{alT}}; display: flex; gap: 4px; pointer-events: none">
+<div class="altl" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px #070705"><svg width="12" height="12" viewBox="0 0 7 7" aria-hidden="true" shape-rendering="crispEdges" style="transform: rotate(-90deg)"><rect x="3" y="1" width="1" height="1" fill="#10110c"></rect><rect x="2" y="2" width="3" height="1" fill="#10110c"></rect><rect x="1" y="3" width="5" height="1" fill="#10110c"></rect><rect x="3" y="4" width="1" height="2" fill="#10110c"></rect></svg></div>
+<div class="altr" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px #070705"><svg width="12" height="12" viewBox="0 0 7 7" aria-hidden="true" shape-rendering="crispEdges" style="transform: rotate(90deg)"><rect x="3" y="1" width="1" height="1" fill="#10110c"></rect><rect x="2" y="2" width="3" height="1" fill="#10110c"></rect><rect x="1" y="3" width="5" height="1" fill="#10110c"></rect><rect x="3" y="4" width="1" height="2" fill="#10110c"></rect></svg></div>
+</div>
+</sc-if>
+
+<!-- Ícono de acción sobre la persona u objeto -->
+<sc-if value="{{showBubble}}" hint-placeholder-val="{{ false }}">
+<div class="float" style="position: absolute; left: {{bL}}; top: {{bT}}; display: flex; flex-direction: column; align-items: center; pointer-events: none">
+<div style="width: 56px; height: 56px; background: #14150f; box-shadow: 0 0 0 4px #e8b33a, 0 0 0 7px #070705; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{iGrab}}" hint-placeholder-val="{{ false }}"><svg width="36" height="36" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><rect x="3" y="1" width="7" height="4" fill="#e6dfc0"></rect><rect x="2" y="3" width="1" height="2" fill="#e6dfc0"></rect><rect x="3" y="5" width="1" height="2" fill="#e6dfc0"></rect><rect x="5" y="5" width="1" height="3" fill="#e6dfc0"></rect><rect x="7" y="5" width="1" height="3" fill="#e6dfc0"></rect><rect x="9" y="5" width="1" height="2" fill="#e6dfc0"></rect><rect x="3" y="9" width="7" height="2" fill="#d8d0b0"></rect></svg></sc-if>
+<sc-if value="{{iDni}}" hint-placeholder-val="{{ false }}"><svg width="36" height="36" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><rect x="1" y="3" width="10" height="7" fill="#d8d0b0"></rect><rect x="2" y="4" width="3" height="4" fill="#7d7a62"></rect><rect x="6" y="5" width="4" height="1" fill="#7d7a62"></rect><rect x="6" y="7" width="3" height="1" fill="#7d7a62"></rect></svg></sc-if>
+<sc-if value="{{iExplain}}" hint-placeholder-val="{{ false }}"><svg width="36" height="36" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><rect x="1" y="1" width="10" height="7" fill="#e6dfc0"></rect><rect x="2" y="8" width="2" height="2" fill="#e6dfc0"></rect><rect x="2" y="3" width="3" height="3" fill="#3bb3e6"></rect><rect x="5" y="4" width="2" height="1" fill="#10110c"></rect><rect x="7" y="3" width="3" height="3" fill="#f2c200"></rect></svg></sc-if>
+<sc-if value="{{iNote}}" hint-placeholder-val="{{ false }}"><svg width="36" height="36" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><rect x="4" y="1" width="6" height="2" fill="#c9d97a"></rect><rect x="4" y="3" width="1" height="5" fill="#c9d97a"></rect><rect x="9" y="3" width="1" height="4" fill="#c9d97a"></rect><rect x="2" y="7" width="3" height="3" fill="#c9d97a"></rect><rect x="7" y="6" width="3" height="3" fill="#c9d97a"></rect></svg></sc-if>
+<sc-if value="{{iMoney}}" hint-placeholder-val="{{ false }}"><svg width="36" height="36" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><rect x="5" y="0" width="2" height="2" fill="#7fd18a"></rect><rect x="4" y="2" width="5" height="1" fill="#7fd18a"></rect><rect x="3" y="3" width="2" height="2" fill="#7fd18a"></rect><rect x="4" y="5" width="4" height="1" fill="#7fd18a"></rect><rect x="7" y="6" width="2" height="2" fill="#7fd18a"></rect><rect x="3" y="8" width="5" height="1" fill="#7fd18a"></rect><rect x="5" y="9" width="2" height="2" fill="#7fd18a"></rect></svg></sc-if>
+<sc-if value="{{iCard}}" hint-placeholder-val="{{ false }}"><svg width="36" height="36" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><rect x="1" y="3" width="10" height="7" fill="#2f7d6d"></rect><rect x="1" y="3" width="10" height="1" fill="#24645a"></rect><rect x="1" y="7" width="10" height="1" fill="#e8b33a"></rect><rect x="2" y="4" width="2" height="2" fill="#d8c27a"></rect></svg></sc-if>
+</div>
+<div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 10px solid #e8b33a; margin-top: 3px"></div>
+<div style="margin-top: 6px; display: flex; align-items: center; gap: 4px">
+<div class="{{keyClass}}" style="width: 40px; height: 16px; background: #e6dfc0; box-shadow: 0 0 0 3px #070705; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; box-sizing: border-box"><div style="width: 24px; height: 3px; background: #10110c"></div></div>
+<sc-if value="{{hintHold}}" hint-placeholder-val="{{ false }}"><div style="width: 22px; height: 8px; background: #3b3d2c; box-shadow: 0 0 0 2px #070705; position: relative"><div class="blink" style="position: absolute; left: 0; top: 0; bottom: 0; width: 14px; background: #e8b33a"></div></div></sc-if>
+</div>
+</div>
+</sc-if>
+
+<!-- Moneda que se arrastra hasta la mano del vendedor -->
+<sc-if value="{{coinOn}}" hint-placeholder-val="{{ false }}">
+<div class="blink" style="position: absolute; left: 726px; top: 591px; width: 40px; height: 40px; box-shadow: inset 0 0 0 3px #e8b33a; pointer-events: none"></div>
+<svg aria-hidden="true" style="position: absolute; left: {{coinL}}; top: {{coinT}}" width="24" height="24" viewBox="0 0 12 12" shape-rendering="crispEdges"><rect x="4" y="1" width="4" height="1" fill="#e8b33a"></rect><rect x="2" y="2" width="8" height="1" fill="#e8b33a"></rect><rect x="1" y="3" width="10" height="6" fill="#e8b33a"></rect><rect x="2" y="9" width="8" height="1" fill="#e8b33a"></rect><rect x="4" y="10" width="4" height="1" fill="#e8b33a"></rect><rect x="5" y="4" width="2" height="4" fill="#b88a20"></rect></svg>
+</sc-if>
+
+<!-- Trazar: mini plano de la combinación -->
+<sc-if value="{{traceOn}}" hint-placeholder-val="{{ false }}">
+<div class="px" style="position: absolute; left: 470px; top: 96px; width: 340px; height: 200px; background: rgba(14,15,10,.96); pointer-events: none">
+<sc-for list="{{traceSegs}}" as="sg" hint-placeholder-count="4">
+<div class="{{sg.cls}}" style="position: absolute; left: {{sg.l}}; top: {{sg.t}}; width: {{sg.w}}; height: {{sg.h}}; background: {{sg.bg}}"></div>
+</sc-for>
+<div style="position: absolute; left: 26px; top: 36px; width: 28px; height: 28px; border-radius: 50%; background: #3bb3e6; display: flex; align-items: center; justify-content: center; font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 13px; color: #10110c">A</div>
+<div style="position: absolute; left: 186px; top: 36px; width: 28px; height: 28px; background: #14150f; box-shadow: inset 0 0 0 5px #e6dfc0"></div>
+<div style="position: absolute; left: 266px; top: 116px; width: 28px; height: 28px; border-radius: 50%; background: #f2c200; display: flex; align-items: center; justify-content: center; font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 13px; color: #10110c">H</div>
+<div style="position: absolute; left: {{tpL}}; top: {{tpT}}; width: 12px; height: 12px; background: #e6dfc0; box-shadow: 0 0 0 3px #070705"></div>
+</div>
+</sc-if>
+
+<!-- Confirmación de ayuda -->
+<sc-if value="{{popOn}}" hint-placeholder-val="{{ false }}">
+<div class="pop" style="position: absolute; left: {{popL}}; top: {{popT}}; width: 44px; height: 44px; background: #e8b33a; box-shadow: 0 0 0 4px #070705; display: flex; align-items: center; justify-content: center; pointer-events: none">
+<svg width="26" height="26" viewBox="0 0 10 10" aria-hidden="true" shape-rendering="crispEdges"><rect x="1" y="5" width="2" height="2" fill="#10110c"></rect><rect x="3" y="7" width="2" height="2" fill="#10110c"></rect><rect x="5" y="5" width="2" height="2" fill="#10110c"></rect><rect x="7" y="3" width="2" height="2" fill="#10110c"></rect><rect x="8" y="1" width="2" height="2" fill="#10110c"></rect></svg>
+</div>
+</sc-if>
+
+<sc-if value="{{scanlines}}" hint-placeholder-val="{{ true }}"><div class="scan" style="position: absolute; inset: 0"></div></sc-if>
+<sc-if value="{{ffOn}}" hint-placeholder-val="{{ false }}"><div class="vhs" style="position: absolute; inset: 0; background-color: rgba(30,40,60,.18); pointer-events: none"></div></sc-if>
+
+<!-- HUD: reloj al trabajo + combinación -->
+<div class="px" style="position: absolute; left: 32px; top: 28px; background: rgba(16,17,12,.94); padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; pointer-events: none">
+<div style="display: flex; align-items: center; gap: 14px">
+<svg role="img" aria-label="Trabajo" width="34" height="34" viewBox="0 0 12 12" shape-rendering="crispEdges"><rect x="4" y="1" width="4" height="1" fill="#bdb795"></rect><rect x="4" y="1" width="1" height="2" fill="#bdb795"></rect><rect x="7" y="1" width="1" height="2" fill="#bdb795"></rect><rect x="1" y="3" width="10" height="7" fill="#7a5a3a"></rect><rect x="1" y="6" width="10" height="1" fill="#5e4329"></rect><rect x="5" y="5" width="2" height="3" fill="#e8b33a"></rect></svg>
+<span style="font-size: 54px; line-height: .8; color: {{timerColor}}">{{clock}}</span>
+<sc-if value="{{ffOn}}" hint-placeholder-val="{{ false }}"><svg role="img" aria-label="Adelantando el tiempo" class="blink" width="30" height="20" viewBox="0 0 12 8" shape-rendering="crispEdges"><rect x="0" y="0" width="2" height="8" fill="#e05a4a"></rect><rect x="2" y="1" width="2" height="6" fill="#e05a4a"></rect><rect x="4" y="3" width="2" height="2" fill="#e05a4a"></rect><rect x="6" y="0" width="2" height="8" fill="#e05a4a"></rect><rect x="8" y="1" width="2" height="6" fill="#e05a4a"></rect><rect x="10" y="3" width="2" height="2" fill="#e05a4a"></rect></svg></sc-if>
+</div>
+<div role="img" aria-label="Combinación de línea A a línea H" style="display: flex; align-items: center">
+<div style="width: 30px; height: 30px; border-radius: 50%; background: #3bb3e6; display: flex; align-items: center; justify-content: center; font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 15px; color: #10110c; box-shadow: 0 0 0 3px #070705">A</div>
+<div style="display: flex; gap: 6px; padding: 0 8px">
+<sc-for list="{{progress}}" as="r" hint-placeholder-count="5"><div style="width: 12px; height: 12px; background: {{r.bg}}; box-shadow: {{r.ring}}"></div></sc-for>
+</div>
+<div style="width: 30px; height: 30px; border-radius: 50%; background: #f2c200; display: flex; align-items: center; justify-content: center; font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 15px; color: #10110c; box-shadow: 0 0 0 3px #070705">H</div>
+</div>
+</div>
+
+<!-- Pista de controles al inicio -->
+<sc-if value="{{showHint}}" hint-placeholder-val="{{ true }}">
+<div class="blink" style="position: absolute; left: 80px; top: 690px; display: flex; gap: 6px; align-items: center; pointer-events: none">
+<sc-for list="{{keysHint}}" as="k" hint-placeholder-count="4">
+<div style="width: 22px; height: 22px; background: #e6dfc0; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px #070705"><svg width="12" height="12" viewBox="0 0 7 7" aria-hidden="true" shape-rendering="crispEdges" style="transform: rotate({{k.r}})"><rect x="3" y="1" width="1" height="1" fill="#10110c"></rect><rect x="2" y="2" width="3" height="1" fill="#10110c"></rect><rect x="1" y="3" width="5" height="1" fill="#10110c"></rect><rect x="3" y="4" width="1" height="2" fill="#10110c"></rect></svg></div>
+</sc-for>
+<div style="width: 46px; height: 22px; background: #e6dfc0; box-shadow: 0 0 0 3px #070705; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; box-sizing: border-box; margin-left: 8px"><div style="width: 28px; height: 3px; background: #10110c"></div></div>
+</div>
+</sc-if>
+
+<!-- Pad en pantalla -->
+<div style="position: absolute; right: 28px; bottom: 24px; display: flex; gap: 14px; align-items: flex-end">
+<button class="pad" aria-label="Acción" style="width: 72px" onPointerDown="{{padAct}}" onPointerUp="{{padActUp}}" onPointerLeave="{{padActUp}}"><div style="width: 40px; height: 6px; background: #e6dfc0"></div></button>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; width: 150px">
+<div></div>
+<button class="pad" aria-label="Arriba" onPointerDown="{{padUp}}" onPointerUp="{{padRelease}}" onPointerLeave="{{padRelease}}"><svg width="16" height="16" viewBox="0 0 7 7" aria-hidden="true" shape-rendering="crispEdges"><rect x="3" y="1" width="1" height="1" fill="#e6dfc0"></rect><rect x="2" y="2" width="3" height="1" fill="#e6dfc0"></rect><rect x="1" y="3" width="5" height="1" fill="#e6dfc0"></rect><rect x="3" y="4" width="1" height="2" fill="#e6dfc0"></rect></svg></button>
+<div></div>
+<button class="pad" aria-label="Izquierda" onPointerDown="{{padLeft}}" onPointerUp="{{padRelease}}" onPointerLeave="{{padRelease}}"><svg width="16" height="16" viewBox="0 0 7 7" aria-hidden="true" shape-rendering="crispEdges" style="transform: rotate(-90deg)"><rect x="3" y="1" width="1" height="1" fill="#e6dfc0"></rect><rect x="2" y="2" width="3" height="1" fill="#e6dfc0"></rect><rect x="1" y="3" width="5" height="1" fill="#e6dfc0"></rect><rect x="3" y="4" width="1" height="2" fill="#e6dfc0"></rect></svg></button>
+<button class="pad" aria-label="Abajo" onPointerDown="{{padDown}}" onPointerUp="{{padRelease}}" onPointerLeave="{{padRelease}}"><svg width="16" height="16" viewBox="0 0 7 7" aria-hidden="true" shape-rendering="crispEdges" style="transform: rotate(180deg)"><rect x="3" y="1" width="1" height="1" fill="#e6dfc0"></rect><rect x="2" y="2" width="3" height="1" fill="#e6dfc0"></rect><rect x="1" y="3" width="5" height="1" fill="#e6dfc0"></rect><rect x="3" y="4" width="1" height="2" fill="#e6dfc0"></rect></svg></button>
+<button class="pad" aria-label="Derecha" onPointerDown="{{padRight}}" onPointerUp="{{padRelease}}" onPointerLeave="{{padRelease}}"><svg width="16" height="16" viewBox="0 0 7 7" aria-hidden="true" shape-rendering="crispEdges" style="transform: rotate(90deg)"><rect x="3" y="1" width="1" height="1" fill="#e6dfc0"></rect><rect x="2" y="2" width="3" height="1" fill="#e6dfc0"></rect><rect x="1" y="3" width="5" height="1" fill="#e6dfc0"></rect><rect x="3" y="4" width="1" height="2" fill="#e6dfc0"></rect></svg></button>
+</div>
+</div>
+
+<!-- Transición entre escenas -->
+<div style="position: absolute; inset: 0; background: #0a0a07; opacity: {{fadeOp}}; pointer-events: none"></div>
+
+<!-- Finales -->
+<sc-if value="{{endLate}}" hint-placeholder-val="{{ false }}">
+<div class="fadein" style="position: absolute; inset: 0"><dc-import name="FinalTarde" hint-size="1280px,720px"></dc-import></div>
+</sc-if>
+<sc-if value="{{endCancel}}" hint-placeholder-val="{{ false }}">
+<div class="fadein" style="position: absolute; inset: 0"><dc-import name="FinalChoque" hint-size="1280px,720px"></dc-import></div>
+</sc-if>
+<sc-if value="{{ended}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; right: 32px; top: 28px"><button class="restart" onClick="{{restart}}"><span style="color: #10110c; background: #e6dfc0; padding: 1px 6px">R</span>OTRA VEZ</button></div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"scanlines":{"editor":"boolean","default":true},"sound":{"editor":"boolean","default":true},"speed":{"editor":"int","default":200,"min":100,"max":360,"unit":"px/s"},"clockRate":{"editor":"float","default":5,"min":1,"max":20,"step":1,"unit":"s de juego por s"},"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.stageRef = (el) => { this.stage = el; };
+    this.loop = this.loop.bind(this);
+    this.reset();
+  }
+  reset() {
+    this.g = { scene: 1, x: 110, y: 672, face: 1, left: 600, ff: 0, helps: 0, ignores: 0, res: [], phase: 'play', fade: 0, t: 0, hold: false, keys: {}, alt: { last: null, n: 0, at: 0 }, popT: 0, shakeT: 0, moved: false, dist: 0 };
+    this.setupScene(1);
+  }
+  setupScene(n) {
+    const g = this.g;
+    Object.assign(g, { scene: n, resolved: null, mini: null, prog: 0, x: 110, y: 672, inRange: false, beepT: 0 });
+    if (n === 1) Object.assign(g, { dni: { x: 700, y: 640, vx: 60, vy: 30 }, kickT: 1, picked: false, ownerOn: false });
+    if (n === 2) Object.assign(g, { npcY: 620 });
+    if (n === 4) Object.assign(g, { kid: false, kidDone: false, kx: 650, ky: 672 });
+    if (n === 5) Object.assign(g, { senX: 718 });
+  }
+  componentDidMount() {
+    this.last = performance.now();
+    this.raf = requestAnimationFrame(this.loop);
+    setTimeout(() => this.focus(), 50);
+  }
+  componentWillUnmount() { cancelAnimationFrame(this.raf); }
+  focus() { try { this.stage && this.stage.focus({ preventScroll: true }); } catch (e) {} }
+  tone(f, d, type, vol) {
+    if (this.props.sound === false) return;
+    try {
+      if (!this.ac) this.ac = new (window.AudioContext || window.webkitAudioContext)();
+      const o = this.ac.createOscillator(), gn = this.ac.createGain();
+      const t = this.ac.currentTime, v = vol || 0.04;
+      o.type = type || 'square'; o.frequency.value = f;
+      gn.gain.setValueAtTime(v, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + (d || 0.08));
+      o.connect(gn); gn.connect(this.ac.destination); o.start(t); o.stop(t + (d || 0.08) + 0.02);
+    } catch (e) {}
+  }
+  loop(now) {
+    const dt = Math.min(0.05, (now - this.last) / 1000);
+    this.last = now;
+    this.update(dt);
+    this.forceUpdate();
+    this.raf = requestAnimationFrame(this.loop);
+  }
+  dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
+  gateOpen() { return (this.g.t % 2.2) < 0.9; }
+  free(x, y) {
+    const g = this.g;
+    const obs = [[40, 250, 0, 640], [385, 650, 455, 578], [820, 940, 0, 548], [1030, 1290, 0, 508]];
+    for (const o of obs) if (x > o[0] - 12 && x < o[1] + 12 && y > o[2] && y < o[3] + 6) return false;
+    if (g.scene === 2 && !g.resolved && x > 930 && x < 1045 && Math.abs(y - g.npcY) < 44) return false;
+    if (g.scene === 5 && x > 686 && x < 750) {
+      const gap1 = y > 380 && y < 442 && g.resolved === 'help';
+      const gap2 = y > 622 && y < 690 && this.gateOpen();
+      if (!gap1 && !gap2) return false;
+    }
+    return true;
+  }
+  help() {
+    const g = this.g;
+    if (g.resolved) return;
+    g.resolved = 'help'; g.res[g.scene - 1] = 'help'; g.helps++; g.ff += 120;
+    const t = this.target(true);
+    g.popAt = t; g.popT = 1.2; g.mini = null; g.prog = 0;
+    if (g.scene === 4) { g.kid = false; g.kidDone = true; }
+    [660, 880, 1320].forEach((f, i) => setTimeout(() => this.tone(f, 0.12, 'square', 0.05), i * 90));
+  }
+  ignore() {
+    const g = this.g;
+    if (g.resolved) return;
+    g.resolved = 'ignore'; g.res[g.scene - 1] = 'ignore'; g.ignores++; g.mini = null; g.prog = 0;
+    if (g.scene === 4) { g.kid = false; g.kidDone = true; }
+    this.tone(g.scene === 1 ? 90 : 160, 0.25, 'sawtooth', 0.05);
+  }
+  target(force) {
+    const g = this.g;
+    if (g.resolved && !force) return null;
+    switch (g.scene) {
+      case 1: return g.picked ? { x: 1120, y: 640, obj: false } : { x: g.dni.x, y: g.dni.y, obj: true };
+      case 2: return { x: 985, y: g.npcY };
+      case 3: return { x: 600, y: 330 };
+      case 4: return { x: 720, y: 655 };
+      case 5: return { x: g.senX, y: 412 };
+    }
+    return null;
+  }
+  update(dt) {
+    const g = this.g;
+    g.t += dt;
+    if (g.phase === 'end') return;
+    if (g.ff > 0) { const d = Math.min(g.ff, 160 * dt); g.left -= d; g.ff -= d; }
+    else g.left -= (this.props.clockRate ?? 5) * dt;
+    if (g.popT > 0) g.popT -= dt;
+    if (g.shakeT > 0) g.shakeT -= dt;
+    if (g.phase === 'fade') {
+      g.fade += dt;
+      if (g.fade >= 0.35 && !g.switched) {
+        g.switched = true;
+        if (g.scene < 5) this.setupScene(g.scene + 1);
+        else { g.phase = 'end'; this.tone(220, 0.4, 'triangle', 0.06); return; }
+      }
+      if (g.fade >= 0.7) { g.phase = 'play'; g.fade = 0; g.switched = false; }
+      return;
+    }
+    const k = g.keys;
+    const dx = (k.ArrowRight ? 1 : 0) - (k.ArrowLeft ? 1 : 0);
+    const dy = (k.ArrowDown ? 1 : 0) - (k.ArrowUp ? 1 : 0);
+    g.moving = false;
+    if (g.mini) this.updateMini(dt, dx, dy);
+    else if (dx || dy) {
+      const len = Math.hypot(dx, dy);
+      const sp = (this.props.speed ?? 200) * dt * (g.kid ? 0.3 : 1);
+      const nx = Math.min(1250, Math.max(60, g.x + (dx / len) * sp));
+      const ny = Math.min(688, Math.max(295, g.y + (dy / len) * sp));
+      if (g.scene === 5 && !this.gateOpen() && dx > 0 && g.x < 686 && nx >= 686 && g.y > 622 && g.shakeT <= 0) {
+        g.x -= 40; g.shakeT = 0.3; this.tone(110, 0.15, 'square', 0.05);
+      } else {
+        if (this.free(nx, g.y)) g.x = nx;
+        if (this.free(g.x, ny)) g.y = ny;
+      }
+      if (dx) g.face = dx;
+      g.moving = true; g.moved = true; g.dist += sp;
+    }
+    this.sceneLogic(dt);
+    if (g.phase === 'play' && g.x >= 1236 && g.y > 512) {
+      if (!g.resolved) this.ignore();
+      g.phase = 'fade'; g.fade = 0; g.switched = false; g.keys = {};
+    }
+  }
+  sceneLogic(dt) {
+    const g = this.g;
+    const s = g.scene;
+    g.inRange = false;
+    if (s === 1) {
+      if (!g.picked && !g.resolved) {
+        g.kickT -= dt;
+        if (g.kickT <= 0) { g.kickT = 0.9 + Math.random() * 0.8; const a = Math.random() * Math.PI * 2; g.dni.vx = Math.cos(a) * 80; g.dni.vy = Math.sin(a) * 50; }
+        g.dni.x += g.dni.vx * dt; g.dni.y += g.dni.vy * dt;
+        if (g.dni.x < 670 || g.dni.x > 800) { g.dni.vx *= -1; g.dni.x = Math.min(800, Math.max(670, g.dni.x)); }
+        if (g.dni.y < 596 || g.dni.y > 684) { g.dni.vy *= -1; g.dni.y = Math.min(684, Math.max(596, g.dni.y)); }
+        const d = this.dist(g.x, g.y, g.dni.x, g.dni.y);
+        g.inRange = d < 120;
+        if (g.hold && d < 36) {
+          g.prog += dt / 0.9; g.beepT -= dt;
+          if (g.beepT <= 0) { g.beepT = 0.18; this.tone(500 + g.prog * 500, 0.04); }
+          if (g.prog >= 1) { g.picked = true; g.ownerOn = true; g.prog = 0; this.tone(990, 0.1); }
+        } else if (g.prog > 0) g.prog = d >= 36 ? 0 : Math.max(0, g.prog - dt * 2);
+        if (g.x > 930) this.ignore();
+      } else if (g.picked && !g.resolved) {
+        g.inRange = this.dist(g.x, g.y, 1120, 640) < 120;
+      }
+    }
+    if (s === 2) {
+      if (!g.resolved) {
+        const step = 160 * dt;
+        g.npcY += Math.max(-step, Math.min(step, g.y - g.npcY));
+        g.npcY = Math.max(515, Math.min(688, g.npcY));
+        g.contact = g.x > 880 && Math.abs(g.y - g.npcY) < 80;
+        g.inRange = g.contact;
+      } else {
+        g.npcY += (330 - g.npcY) * Math.min(1, dt * 3);
+        g.contact = false;
+      }
+    }
+    if (s === 3 && !g.resolved) {
+      g.inRange = this.dist(g.x, g.y, 600, 330) < 160;
+      if (g.x > 930) this.ignore();
+    }
+    if (s === 4) {
+      if (!g.kid && !g.kidDone && !g.resolved && this.dist(g.x, g.y, g.kx, g.ky) < 90) { g.kid = true; this.tone(300, 0.1, 'triangle', 0.05); }
+      if (g.kid) { g.kx = g.x - 30 * g.face; g.ky = g.y + 6; }
+      else if (g.kidDone) { g.kx += (690 - g.kx) * Math.min(1, dt * 3); g.ky += (672 - g.ky) * Math.min(1, dt * 3); }
+      if (!g.resolved) {
+        g.inRange = this.dist(g.x, g.y, 720, 655) < 150;
+        if (g.x > 930) this.ignore();
+      }
+    }
+    if (s === 5) {
+      if (!g.resolved) {
+        g.inRange = this.dist(g.x, g.y, 718, 412) < 90;
+        if (g.inRange && g.hold && !g.moving) {
+          g.prog += dt / 1.8; g.beepT -= dt;
+          if (g.beepT <= 0) { g.beepT = 0.35; this.tone(1200, 0.05, 'square', 0.03); }
+          if (g.prog >= 1) this.help();
+        } else if (g.prog > 0) g.prog = 0;
+        if (g.x > 752 && g.y > 622) this.ignore();
+      } else if (g.resolved === 'help' && g.senX < 1300) g.senX += 200 * dt;
+    }
+  }
+  updateMini(dt, dx, dy) {
+    const g = this.g, m = g.mini;
+    if (m.type === 'rh') {
+      if (dx || dy) { g.mini = null; return; }
+      m.t += dt;
+      const T = (i) => 0.9 + i * 0.6;
+      for (let i = 0; i < 4; i++) {
+        if (!m.ticked[i] && m.t >= T(i)) { m.ticked[i] = true; this.tone(440, 0.06, 'triangle', 0.05); }
+        if (!m.judged[i] && m.t > T(i) + 0.2) { m.judged[i] = 'miss'; }
+      }
+      if (m.t > T(3) + 0.45) {
+        const hits = m.judged.filter((j) => j === 'hit').length;
+        if (hits >= 3) { g.coinInCase = true; this.help(); }
+        else { g.mini = { type: 'rh', t: 0, judged: [false, false, false, false], ticked: [false, false, false, false] }; this.tone(140, 0.2, 'sawtooth', 0.04); }
+      }
+    }
+    if (m.type === 'coin') {
+      m.cx = Math.min(1250, Math.max(40, m.cx + dx * 220 * dt));
+      m.cy = Math.min(700, Math.max(80, m.cy + dy * 220 * dt));
+    }
+  }
+  press() {
+    const g = this.g;
+    if (g.phase !== 'play' || g.resolved) return;
+    const s = g.scene, m = g.mini;
+    if (s === 1 && g.picked && g.inRange) this.help();
+    if (s === 2 && g.contact && !m) g.mini = { type: 'trace', step: 0 };
+    if (s === 3) {
+      if (m && m.type === 'rh') {
+        for (let i = 0; i < 4; i++) {
+          const T = 0.9 + i * 0.6;
+          if (!m.judged[i] && Math.abs(m.t - T) < 0.2) { m.judged[i] = 'hit'; this.tone(880, 0.06); return; }
+        }
+        this.tone(160, 0.05);
+      } else if (g.inRange && !m) {
+        g.mini = { type: 'rh', t: 0, judged: [false, false, false, false], ticked: [false, false, false, false] };
+      }
+    }
+    if (s === 4) {
+      if (m && m.type === 'coin') {
+        if (this.dist(m.cx, m.cy, 746, 611) < 26) this.help();
+        else { this.tone(120, 0.15, 'square', 0.05); m.cx = g.x; m.cy = g.y - 70; }
+      } else if (g.inRange && !m) {
+        g.mini = { type: 'coin', cx: g.x, cy: g.y - 70 };
+      }
+    }
+  }
+  arrowInMini(key) {
+    const g = this.g, m = g.mini;
+    if (!m || m.type !== 'trace') return false;
+    const seq = ['ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowRight'];
+    if (key === seq[m.step]) {
+      m.step++; this.tone(600 + m.step * 120, 0.06);
+      if (m.step >= seq.length) this.help();
+    } else { g.shakeT = 0.25; this.tone(130, 0.12, 'square', 0.05); }
+    return true;
+  }
+  alternate(key) {
+    const g = this.g, a = g.alt, now = performance.now();
+    if (key !== a.last && now - a.at < 420) a.n++; else a.n = 1;
+    a.last = key; a.at = now;
+    if (a.n >= 4 && !g.resolved) {
+      if (g.scene === 2 && g.contact && !g.mini) { this.ignore(); a.n = 0; }
+      if (g.scene === 4 && g.kid) { this.ignore(); a.n = 0; }
+    }
+  }
+  renderVals() {
+    const g = this.g, s = g.scene;
+    const P = (v) => Math.round(v) + 'px';
+    const tgt = this.target();
+    const left = g.left;
+    const abs = Math.abs(Math.round(left));
+    const clock = (left < 0 ? '+' : '') + String(Math.floor(abs / 60)).padStart(2, '0') + ':' + String(abs % 60).padStart(2, '0');
+    const person = (x, y, hair, coat, sc, label) => ({ l: P(x - 20 * sc), t: P(y - 62 * sc), w: Math.round(40 * sc), h: Math.round(64 * sc), hair, coat, label });
+    const npcs = [];
+    if (s === 1 && g.ownerOn) npcs.push(person(1120, 640, '#2a1d14', '#a8322a', 1, 'Dueño del documento'));
+    if (s === 2) npcs.push(person(985, g.npcY, '#6b6a55', '#2f5d7a', 1, 'Persona que pregunta por la línea'));
+    if (s === 3) npcs.push(person(590, 330, '#c9a24a', '#3a6b3a', 1, 'Artista callejero'));
+    if (s === 4) { npcs.push(person(720, 655, '#2a1d14', '#7a5a3a', 1, 'Vendedor ambulante')); npcs.push(person(g.kx, g.ky, '#2a1d14', '#e8b33a', 0.72, 'Niño')); }
+    if (s === 5 && g.senX < 1290) npcs.push(person(g.senX, 412, '#bdb795', '#6b4a7a', 1, 'Señora con la tarjeta rechazada'));
+    const m = g.mini;
+    const showBubble = !!tgt && g.inRange && !m && g.phase === 'play';
+    const bubbleTop = tgt ? tgt.y - (tgt.obj ? 120 : 160) : 0;
+    const holdScene = (s === 1 && !g.picked) || s === 5;
+    let rr = 0, rhythmDots = [], rhythmOn = false;
+    if (m && m.type === 'rh') {
+      rhythmOn = true;
+      let next = 0; while (next < 4 && m.judged[next]) next++;
+      const T = 0.9 + Math.min(next, 3) * 0.6;
+      rr = next < 4 ? 56 + Math.max(0, T - m.t) * 180 : 56;
+      rhythmDots = m.judged.map((j) => ({ bg: j === 'hit' ? '#c9d97a' : j === 'miss' ? '#e05a4a' : '#3b3d2c' }));
+    }
+    const segs = [];
+    if (m && m.type === 'trace') {
+      const node = (i, j) => [40 + i * 80, 50 + j * 80];
+      const path = [[0, 0], [1, 0], [2, 0], [2, 1], [3, 1]];
+      for (let i = 0; i < 4; i++) {
+        const a = node(...path[i]), b = node(...path[i + 1]);
+        const done = i < m.step, next = i === m.step;
+        const color = done ? (i < 2 ? '#3bb3e6' : '#f2c200') : next ? '#e6dfc0' : '#2c2d21';
+        segs.push({ l: P(Math.min(a[0], b[0]) - 5), t: P(Math.min(a[1], b[1]) - 5), w: P(Math.abs(a[0] - b[0]) + 10), h: P(Math.abs(a[1] - b[1]) + 10), bg: color, cls: next ? 'blink' : '' });
+      }
+      var tp = node(...path[m.step]);
+    }
+    const progress = [0, 1, 2, 3, 4].map((i) => {
+      const r = g.res[i];
+      return { bg: r === 'help' ? '#e8b33a' : r === 'ignore' ? '#4a4936' : '#1a1b14', ring: i === s - 1 && g.phase !== 'end' ? '0 0 0 2px #e6dfc0' : '0 0 0 2px #070705' };
+    });
+    const step = Math.floor(g.dist / 14) % 2 === 0;
+    const fadeOp = g.phase === 'fade' ? (g.fade < 0.35 ? g.fade / 0.35 : Math.max(0, (0.7 - g.fade) / 0.35)) : 0;
+    const ended = g.phase === 'end';
+    const shake = g.shakeT > 0 ? (Math.round(g.t * 60) % 2 ? '3px' : '-3px') : '0px';
+    const ARROWS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+    return {
+      scanlines: this.props.scanlines ?? true,
+      worldFilter: 'grayscale(' + Math.min(1, g.ignores * 0.2).toFixed(2) + ') saturate(' + (1 + g.helps * 0.12).toFixed(2) + ')',
+      shakeX: shake,
+      s3: s === 3, s4: s === 4, s5: s === 5,
+      readerColor: g.resolved === 'help' ? '#7fd18a' : '#e05a4a',
+      gateColor: this.gateOpen() ? '#7fd18a' : '#e05a4a',
+      gateTop: this.gateOpen() ? '612px' : '652px',
+      showDni: s === 1 && !g.picked && !g.resolved,
+      dniL: P(g.dni ? g.dni.x - 14 : 0), dniT: P(g.dni ? g.dni.y - 10 : 0),
+      carryDni: s === 1 && g.picked && !g.resolved,
+      showNotes: s === 3 && g.resolved !== 'ignore',
+      noteColor: g.resolved === 'help' ? '#e8b33a' : '#c9d97a',
+      notes: [{ l: '590px', t: '270px', d: '0s' }, { l: '610px', t: '262px', d: '.8s' }, { l: '575px', t: '280px', d: '1.6s' }],
+      coinInCase: !!g.coinInCase,
+      showPulse: !!tgt && g.phase === 'play' && !m,
+      pulseL: P(tgt ? tgt.x - 60 : 0), pulseT: P(tgt ? tgt.y - 60 : 0),
+      npcs,
+      pl: P(g.x - 20), pt: P(g.y - 62), face: g.face < 0 ? -1 : 1,
+      stepA: !g.moving || step, stepB: g.moving && !step,
+      rhythmOn, rtL: P(g.x - 28), rtT: P(g.y - 58), rrS: P(rr), rrL: P(g.x - rr / 2), rrT: P(g.y - 30 - rr / 2), rdL: P(g.x - 26), rdT: P(g.y + 14), rhythmDots,
+      holdOn: holdScene && g.prog > 0,
+      hbL: P(g.x - 42), hbT: P(g.y + 10),
+      holdSegs: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ bg: i < g.prog * 8 ? '#e8b33a' : '#2c2d21' })),
+      altOn: g.phase === 'play' && !g.resolved && !m && ((s === 2 && g.contact) || (s === 4 && g.kid)),
+      alL: P(g.x - 28), alT: P(g.y - 100),
+      showBubble, bL: P(tgt ? tgt.x - 28 : 0), bT: P(bubbleTop),
+      iGrab: s === 1 && !g.picked, iDni: s === 1 && g.picked, iExplain: s === 2, iNote: s === 3, iMoney: s === 4, iCard: s === 5,
+      hintHold: holdScene, keyClass: holdScene ? '' : 'blink',
+      coinOn: !!(m && m.type === 'coin'), coinL: P(m && m.cx ? m.cx - 12 : 0), coinT: P(m && m.cy ? m.cy - 12 : 0),
+      traceOn: !!(m && m.type === 'trace'), traceSegs: segs, tpL: P(tp ? tp[0] - 6 : 0), tpT: P(tp ? tp[1] - 6 : 0),
+      popOn: g.popT > 0 && !!g.popAt, popL: P(g.popAt ? g.popAt.x - 22 : 0), popT: P(g.popAt ? g.popAt.y - 130 : 0),
+      ffOn: g.ff > 0,
+      timerColor: left > 240 ? '#e6dfc0' : left > 0 ? '#e8b33a' : '#e05a4a',
+      clock, progress,
+      showHint: !g.moved && s === 1 && g.phase === 'play',
+      keysHint: [{ r: '-90deg' }, { r: '0deg' }, { r: '180deg' }, { r: '90deg' }],
+      fadeOp: fadeOp.toFixed(2),
+      endLate: ended && g.helps >= 3, endCancel: ended && g.helps < 3, ended,
+      stageRef: this.stageRef,
+      focusStage: () => this.focus(),
+      keyDown: (e) => {
+        if (ARROWS.includes(e.key)) {
+          e.preventDefault();
+          if (!e.repeat) {
+            if (this.arrowInMini(e.key)) return;
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') this.alternate(e.key);
+          }
+          this.g.keys = { ...this.g.keys, [e.key]: true };
+        } else if (e.key === ' ' || e.code === 'Space') {
+          e.preventDefault();
+          if (!e.repeat) this.press();
+          this.g.hold = true;
+        } else if ((e.key === 'r' || e.key === 'R') && this.g.phase === 'end') { this.reset(); }
+      },
+      keyUp: (e) => {
+        if (ARROWS.includes(e.key)) { e.preventDefault(); const k = { ...this.g.keys }; delete k[e.key]; this.g.keys = k; }
+        else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); this.g.hold = false; }
+      },
+      padAct: (e) => { e.preventDefault(); this.press(); this.g.hold = true; },
+      padActUp: () => { this.g.hold = false; },
+      padUp: (e) => { e.preventDefault(); if (!this.arrowInMini('ArrowUp')) this.g.keys = { ArrowUp: true }; },
+      padDown: (e) => { e.preventDefault(); if (!this.arrowInMini('ArrowDown')) this.g.keys = { ArrowDown: true }; },
+      padLeft: (e) => { e.preventDefault(); if (!this.arrowInMini('ArrowLeft')) { this.alternate('ArrowLeft'); this.g.keys = { ArrowLeft: true }; } },
+      padRight: (e) => { e.preventDefault(); if (!this.arrowInMini('ArrowRight')) { this.alternate('ArrowRight'); this.g.keys = { ArrowRight: true }; } },
+      padRelease: () => { this.g.keys = {}; },
+      restart: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.reset(); this.focus(); }
+    };
+  }
+}
+</script>
+</body>
+</html>
